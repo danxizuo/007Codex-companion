@@ -72,10 +72,15 @@ echo
 echo "Companion 配对信息"
 echo
 
+PAIR_ARGS=(
+  pair
+  --config "$CONFIG_FILE"
+  --auth-token-file "$AUTH_FILE"
+)
+
 if [[ -n "$PUBLIC_BASE_URL" ]]; then
   echo "公网地址：$PUBLIC_BASE_URL"
-  echo "公网配对二维码："
-  "$NODE_BIN" "$CLI_PATH" pair --config "$CONFIG_FILE"
+  PAIR_ARGS+=(--connection-url "$PUBLIC_BASE_URL")
 else
   echo "未配置公网地址。"
 fi
@@ -83,12 +88,12 @@ fi
 if [[ -n "$LAN_BASE_URL" ]]; then
   echo
   echo "局域网地址：$LAN_BASE_URL"
-  echo "局域网配对二维码："
-  "$NODE_BIN" "$CLI_PATH" pair \
-    --config "$CONFIG_FILE" \
-    --public-base-url "$LAN_BASE_URL" \
-    --auth-token-file "$AUTH_FILE"
+  PAIR_ARGS+=(--connection-url "$LAN_BASE_URL")
 fi
+
+echo
+echo "合并配对二维码："
+"$NODE_BIN" "$CLI_PATH" "${PAIR_ARGS[@]}"
 
 echo
 echo "如果二维码已经滚出终端，可以随时重新显示："
