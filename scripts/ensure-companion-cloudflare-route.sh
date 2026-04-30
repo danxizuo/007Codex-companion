@@ -214,6 +214,11 @@ PY
   return 0
 }
 
+named_config_has_public_host() {
+  [[ -f "$CLOUDFLARED_CONFIG" ]] || return 1
+  /usr/bin/grep -q "hostname: ${PUBLIC_HOST//./\\.}" "$CLOUDFLARED_CONFIG"
+}
+
 verify_public_status() {
   local auth_args=()
   if [[ -r "$AUTH_FILE" ]]; then
@@ -242,10 +247,10 @@ verify_public_status() {
   return 1
 }
 
-if [[ -n "$CLOUDFLARED_TOKEN" ]]; then
-  write_token_plist "$CLOUDFLARED_TOKEN"
+if named_config_has_public_host && ensure_named_config_route; then
   restart_cloudflared
-elif ensure_named_config_route; then
+elif [[ -n "$CLOUDFLARED_TOKEN" ]]; then
+  write_token_plist "$CLOUDFLARED_TOKEN"
   restart_cloudflared
 elif update_existing_token_plist_url; then
   restart_cloudflared

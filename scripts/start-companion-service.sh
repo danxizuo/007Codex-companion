@@ -124,12 +124,19 @@ fi
 
 for _ in {1..20}; do
   if /usr/bin/curl -fsS "${auth_args[@]}" "http://127.0.0.1:$port/status" >/dev/null 2>&1; then
-    if [[ -f "$APP_DIR/scripts/ensure-companion-cloudflare-route.sh" ]]; then
+    echo "Companion 已启动：http://127.0.0.1:$port"
+    if [[ -f "$APP_DIR/scripts/show-companion-pairing.sh" ]]; then
       ICODEX_COMPANION_CONFIG="$CONFIG_FILE" \
         ICODEX_COMPANION_AUTH_TOKEN_FILE="$AUTH_FILE" \
-        bash "$APP_DIR/scripts/ensure-companion-cloudflare-route.sh"
+        bash "$APP_DIR/scripts/show-companion-pairing.sh"
     fi
-    echo "Companion 已启动：http://127.0.0.1:$port"
+    if [[ -f "$APP_DIR/scripts/ensure-companion-cloudflare-route.sh" ]]; then
+      if ! ICODEX_COMPANION_CONFIG="$CONFIG_FILE" \
+        ICODEX_COMPANION_AUTH_TOKEN_FILE="$AUTH_FILE" \
+        bash "$APP_DIR/scripts/ensure-companion-cloudflare-route.sh"; then
+        echo "Companion 本机服务已启动，但公网地址暂未通过验活。可以先使用上面的局域网二维码连接。" >&2
+      fi
+    fi
     exit 0
   fi
   sleep 1

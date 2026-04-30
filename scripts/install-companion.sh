@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RELEASE_REPO="${ICODEX_COMPANION_RELEASE_REPO:-danxizuo/007Codex-companin}"
+RELEASE_REPO="${ICODEX_COMPANION_RELEASE_REPO:-danxizuo/007Codex-companion}"
 VERSION="${ICODEX_COMPANION_VERSION:-v0.1.0-beta.2}"
 DOMAIN=""
 CLOUDFLARED_TOKEN="${ICODEX_CLOUDFLARED_TOKEN:-}"
@@ -181,14 +181,31 @@ if ! curl -fsS -H "authorization: Bearer $(tr -d '\r\n' < "$AUTH_FILE")" "http:/
   exit 1
 fi
 
+echo
+echo "Companion local service is healthy."
+if [[ -f "$APP_DIR/scripts/show-companion-pairing.sh" ]]; then
+  ICODEX_COMPANION_CONFIG="$CONFIG_FILE" \
+    ICODEX_COMPANION_AUTH_TOKEN_FILE="$AUTH_FILE" \
+    bash "$APP_DIR/scripts/show-companion-pairing.sh"
+else
+  echo "Pair this Mac with the iOS app using the QR code below:"
+  "$NODE_BIN" "$APP_DIR/packages/companion/dist/cli.js" pair --config "$CONFIG_FILE"
+fi
+
 if [[ -f "$APP_DIR/scripts/ensure-companion-cloudflare-route.sh" ]]; then
-  ICODEX_CLOUDFLARED_TOKEN="$CLOUDFLARED_TOKEN" \
+  if ! ICODEX_CLOUDFLARED_TOKEN="$CLOUDFLARED_TOKEN" \
     ICODEX_COMPANION_CONFIG="$CONFIG_FILE" \
     ICODEX_COMPANION_AUTH_TOKEN_FILE="$AUTH_FILE" \
-    bash "$APP_DIR/scripts/ensure-companion-cloudflare-route.sh"
+    bash "$APP_DIR/scripts/ensure-companion-cloudflare-route.sh"; then
+    echo
+    echo "Companion is installed and usable on the local network, but the public Cloudflare address is not healthy yet." >&2
+    echo "Use the LAN pairing QR code above, or rerun the command below after fixing the Cloudflare route:" >&2
+    echo "bash $APP_DIR/scripts/show-companion-pairing.sh" >&2
+    exit 1
+  fi
 fi
 
 echo
 echo "007Codex Companion installed and running."
-echo "Pair this Mac with the iOS app using the QR code below:"
-"$NODE_BIN" "$APP_DIR/packages/companion/dist/cli.js" pair --config "$CONFIG_FILE"
+echo "If the QR code has scrolled out of the terminal, rerun:"
+echo "bash $APP_DIR/scripts/show-companion-pairing.sh"
