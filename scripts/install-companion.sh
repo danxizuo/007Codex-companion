@@ -2,7 +2,7 @@
 set -euo pipefail
 
 RELEASE_REPO="${ICODEX_COMPANION_RELEASE_REPO:-danxizuo/007Codex-companin}"
-VERSION="${ICODEX_COMPANION_VERSION:-v0.1.0-beta.1}"
+VERSION="${ICODEX_COMPANION_VERSION:-v0.1.0-beta.2}"
 DOMAIN=""
 CLOUDFLARED_TOKEN="${ICODEX_CLOUDFLARED_TOKEN:-}"
 INSTALL_HOME="${ICODEX_COMPANION_HOME:-$HOME/.icodex-companion}"
@@ -14,8 +14,8 @@ COMPANION_LABEL="com.danxizuo.icodex-companion"
 CLOUDFLARED_LABEL="com.danxizuo.icodex-companion-cloudflared"
 COMPANION_PLIST="$HOME/Library/LaunchAgents/$COMPANION_LABEL.plist"
 CLOUDFLARED_PLIST="$HOME/Library/LaunchAgents/$CLOUDFLARED_LABEL.plist"
-PORT="${ICODEX_COMPANION_PORT:-3939}"
-HOST="${ICODEX_COMPANION_HOST:-127.0.0.1}"
+PORT="${ICODEX_COMPANION_PORT:-}"
+HOST="${ICODEX_COMPANION_HOST:-0.0.0.0}"
 NAME="${ICODEX_COMPANION_NAME:-007Codex Companion}"
 
 while [[ $# -gt 0 ]]; do
@@ -60,6 +60,22 @@ command -v tar >/dev/null 2>&1 || { echo "tar is required." >&2; exit 1; }
 command -v node >/dev/null 2>&1 || { echo "Node.js is required." >&2; exit 1; }
 NODE_BIN="$(command -v node)"
 
+port_in_use() {
+  lsof -nP -tiTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1
+}
+
+choose_port() {
+  local preferred="${1:-3939}"
+  local port
+  for port in "$preferred" $(seq 3940 3999) $(seq 4940 4999); do
+    if ! port_in_use "$port"; then
+      echo "$port"
+      return 0
+    fi
+  done
+  return 1
+}
+
 PNPM_BIN="${PNPM_BIN:-}"
 if [[ -z "$PNPM_BIN" ]]; then
   if command -v pnpm >/dev/null 2>&1; then
@@ -92,6 +108,21 @@ mkdir -p "$APP_DIR"
 tar -xzf "$TMP_DIR/$ARCHIVE_NAME" -C "$APP_DIR" --strip-components 1
 
 "$PNPM_BIN" -C "$APP_DIR" install --prod --frozen-lockfile
+
+launchctl bootout "gui/$(id -u)" "$COMPANION_PLIST" >/dev/null 2>&1 || true
+launchctl bootout "gui/$(id -u)" "$CLOUDFLARED_PLIST" >/dev/null 2>&1 || true
+
+if [[ -z "$PORT" ]]; then
+  PORT="$(choose_port 3939)" || {
+    echo "No available Companion port was found." >&2
+    exit 1
+  }
+elif port_in_use "$PORT"; then
+  PORT="$(choose_port "$PORT")" || {
+    echo "No available Companion port was found." >&2
+    exit 1
+  }
+fi
 
 if [[ ! -s "$AUTH_FILE" ]]; then
   umask 077
@@ -135,7 +166,6 @@ cat >"$COMPANION_PLIST" <<PLIST
 </plist>
 PLIST
 
-launchctl bootout "gui/$(id -u)" "$COMPANION_PLIST" >/dev/null 2>&1 || true
 launchctl bootstrap "gui/$(id -u)" "$COMPANION_PLIST"
 launchctl kickstart -k "gui/$(id -u)/$COMPANION_LABEL"
 
@@ -176,7 +206,6 @@ if [[ -n "$CLOUDFLARED_TOKEN" ]]; then
 </plist>
 PLIST
 
-  launchctl bootout "gui/$(id -u)" "$CLOUDFLARED_PLIST" >/dev/null 2>&1 || true
   launchctl bootstrap "gui/$(id -u)" "$CLOUDFLARED_PLIST"
   launchctl kickstart -k "gui/$(id -u)/$CLOUDFLARED_LABEL"
 fi
