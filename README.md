@@ -16,8 +16,9 @@ Each beta tester should receive a unique domain and Cloudflare tunnel token.
 ```
 
 The installer downloads the matching release bundle, installs the Companion as
-a user LaunchAgent, starts Cloudflare Tunnel when a token is provided, and prints
-the iPhone pairing QR code.
+a user LaunchAgent, completes the Cloudflare forwarding config when possible,
+checks the public `/status` URL from the pairing domain, and then prints the
+iPhone pairing QR code.
 
 The local Companion port is selected automatically. Port `3939` is preferred,
 but if it is already occupied the installer chooses the next available port and
@@ -33,8 +34,8 @@ bash "$HOME/.icodex-companion/app/scripts/start-companion-service.sh"
 ```
 
 This command reuses the installed config, picks an available local port, updates
-the Cloudflare local target when needed, restarts the LaunchAgent, and verifies
-that Companion is healthy.
+the Cloudflare local target or named tunnel ingress when needed, restarts the
+LaunchAgent, and verifies that Companion is healthy before returning.
 
 ## Installed Paths
 

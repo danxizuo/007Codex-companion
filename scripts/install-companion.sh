@@ -167,48 +167,6 @@ cat >"$COMPANION_PLIST" <<PLIST
 PLIST
 
 launchctl bootstrap "gui/$(id -u)" "$COMPANION_PLIST"
-launchctl kickstart -k "gui/$(id -u)/$COMPANION_LABEL"
-
-if [[ -n "$CLOUDFLARED_TOKEN" ]]; then
-  CLOUDFLARED_BIN="${CLOUDFLARED_BIN:-$(command -v cloudflared || true)}"
-  if [[ -z "$CLOUDFLARED_BIN" ]]; then
-    echo "cloudflared token was provided, but cloudflared was not found." >&2
-    exit 1
-  fi
-
-  cat >"$CLOUDFLARED_PLIST" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>$CLOUDFLARED_LABEL</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>$CLOUDFLARED_BIN</string>
-    <string>tunnel</string>
-    <string>--no-autoupdate</string>
-    <string>run</string>
-    <string>--token</string>
-    <string>$CLOUDFLARED_TOKEN</string>
-    <string>--url</string>
-    <string>http://127.0.0.1:$PORT</string>
-  </array>
-  <key>RunAtLoad</key>
-  <true/>
-  <key>KeepAlive</key>
-  <true/>
-  <key>StandardOutPath</key>
-  <string>$LOG_DIR/cloudflared.log</string>
-  <key>StandardErrorPath</key>
-  <string>$LOG_DIR/cloudflared.err.log</string>
-</dict>
-</plist>
-PLIST
-
-  launchctl bootstrap "gui/$(id -u)" "$CLOUDFLARED_PLIST"
-  launchctl kickstart -k "gui/$(id -u)/$CLOUDFLARED_LABEL"
-fi
 
 echo "Waiting for Companion on 127.0.0.1:$PORT..."
 for _ in {1..30}; do
@@ -221,6 +179,13 @@ done
 if ! curl -fsS -H "authorization: Bearer $(tr -d '\r\n' < "$AUTH_FILE")" "http://127.0.0.1:$PORT/status" >/dev/null 2>&1; then
   echo "Companion service did not become healthy. Check $LOG_DIR/companion.err.log" >&2
   exit 1
+fi
+
+if [[ -f "$APP_DIR/scripts/ensure-companion-cloudflare-route.sh" ]]; then
+  ICODEX_CLOUDFLARED_TOKEN="$CLOUDFLARED_TOKEN" \
+    ICODEX_COMPANION_CONFIG="$CONFIG_FILE" \
+    ICODEX_COMPANION_AUTH_TOKEN_FILE="$AUTH_FILE" \
+    bash "$APP_DIR/scripts/ensure-companion-cloudflare-route.sh"
 fi
 
 echo

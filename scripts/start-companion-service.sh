@@ -8,12 +8,9 @@ AUTH_FILE="${ICODEX_COMPANION_AUTH_TOKEN_FILE:-$INSTALL_HOME/auth-token}"
 HOST="${ICODEX_COMPANION_HOST:-0.0.0.0}"
 LOG_DIR="$HOME/Library/Logs/iCodexCompanion"
 COMPANION_LABEL="com.danxizuo.icodex-companion"
-CLOUDFLARED_LABEL="com.danxizuo.icodex-companion-cloudflared"
 COMPANION_PLIST="$HOME/Library/LaunchAgents/$COMPANION_LABEL.plist"
-CLOUDFLARED_PLIST="$HOME/Library/LaunchAgents/$CLOUDFLARED_LABEL.plist"
 LAUNCH_DOMAIN="gui/$(id -u)"
 COMPANION_TARGET="$LAUNCH_DOMAIN/$COMPANION_LABEL"
-CLOUDFLARED_TARGET="$LAUNCH_DOMAIN/$CLOUDFLARED_LABEL"
 NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 CLI_PATH="$APP_DIR/packages/companion/dist/cli.js"
 
@@ -66,20 +63,6 @@ choose_port() {
   return 1
 }
 
-update_cloudflared_url_if_needed() {
-  local port="$1"
-  [[ -f "$CLOUDFLARED_PLIST" ]] || return 0
-  /usr/bin/grep -q '<string>--url</string>' "$CLOUDFLARED_PLIST" || return 0
-
-  /usr/bin/perl -0pi -e \
-    "s#(<string>--url</string>\\s*<string>)http://127\\.0\\.0\\.1:[0-9]+(</string>)#\${1}http://127.0.0.1:${port}\${2}#s" \
-    "$CLOUDFLARED_PLIST"
-
-  /bin/launchctl bootout "$LAUNCH_DOMAIN" "$CLOUDFLARED_PLIST" >/dev/null 2>&1 || true
-  /bin/launchctl bootstrap "$LAUNCH_DOMAIN" "$CLOUDFLARED_PLIST"
-  /bin/launchctl kickstart -k "$CLOUDFLARED_TARGET"
-}
-
 write_companion_plist() {
   cat >"$COMPANION_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -127,11 +110,9 @@ port="$(choose_port "$preferred_port")" || {
   --host "$HOST" \
   --port "$port" \
   --auth-token-file "$AUTH_FILE" >/dev/null
-update_cloudflared_url_if_needed "$port"
 write_companion_plist
 
 /bin/launchctl bootstrap "$LAUNCH_DOMAIN" "$COMPANION_PLIST"
-/bin/launchctl kickstart -k "$COMPANION_TARGET"
 
 if [[ ! -r "$AUTH_FILE" && -r "$HOME/.codex/icodex-companion-auth-token" ]]; then
   AUTH_FILE="$HOME/.codex/icodex-companion-auth-token"
@@ -142,7 +123,12 @@ if [[ -r "$AUTH_FILE" ]]; then
 fi
 
 for _ in {1..20}; do
-  if /usr/bin/curl -fsS "${auth_args[@]}" "http://127.0.0.1:$port/status" >/dev/null; then
+  if /usr/bin/curl -fsS "${auth_args[@]}" "http://127.0.0.1:$port/status" >/dev/null 2>&1; then
+    if [[ -f "$APP_DIR/scripts/ensure-companion-cloudflare-route.sh" ]]; then
+      ICODEX_COMPANION_CONFIG="$CONFIG_FILE" \
+        ICODEX_COMPANION_AUTH_TOKEN_FILE="$AUTH_FILE" \
+        bash "$APP_DIR/scripts/ensure-companion-cloudflare-route.sh"
+    fi
     echo "Companion 已启动：http://127.0.0.1:$port"
     exit 0
   fi
