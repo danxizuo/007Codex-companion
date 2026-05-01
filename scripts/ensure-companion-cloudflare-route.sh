@@ -70,7 +70,7 @@ if [[ -z "$PUBLIC_HOST" || "$PUBLIC_HOST" == "localhost" || "$PUBLIC_HOST" == "1
 fi
 
 if [[ -z "$CLOUDFLARED_BIN" || ! -x "$CLOUDFLARED_BIN" ]]; then
-  echo "Companion 已配置公网地址 $PUBLIC_BASE_URL，但未找到 cloudflared，无法补齐公网转发。" >&2
+  echo "Companion 已配置公网地址 ${PUBLIC_BASE_URL}，但未找到 cloudflared，无法补齐公网转发。" >&2
   exit 1
 fi
 
@@ -255,7 +255,7 @@ elif [[ -n "$CLOUDFLARED_TOKEN" ]]; then
 elif update_existing_token_plist_url; then
   restart_cloudflared
 else
-  echo "Companion 已配置公网地址 $PUBLIC_BASE_URL，但没有可更新的 Cloudflare token 或 named tunnel 配置。" >&2
+  echo "Companion 已配置公网地址 ${PUBLIC_BASE_URL}，但没有可更新的 Cloudflare token 或 named tunnel 配置。" >&2
   exit 1
 fi
 
