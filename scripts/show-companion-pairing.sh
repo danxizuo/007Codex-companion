@@ -7,6 +7,9 @@ CONFIG_FILE="${ICODEX_COMPANION_CONFIG:-$INSTALL_HOME/config.json}"
 AUTH_FILE="${ICODEX_COMPANION_AUTH_TOKEN_FILE:-$INSTALL_HOME/auth-token}"
 NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 CLI_PATH="$APP_DIR/packages/companion/dist/cli.js"
+CHATGPT_BRIDGE_VERSION="${ICODEX_CHATGPT_BRIDGE_VERSION:-v0.1.0-beta.2}"
+CHATGPT_BRIDGE_RELEASE_REPO="${ICODEX_CHATGPT_BRIDGE_RELEASE_REPO:-danxizuo/007Codex-companion}"
+CHATGPT_BRIDGE_WEBSTORE_URL="${ICODEX_CHATGPT_BRIDGE_WEBSTORE_URL:-}"
 
 if [[ -z "$NODE_BIN" || ! -x "$NODE_BIN" ]]; then
   echo "未找到 Node.js，无法显示 Companion 配对二维码。" >&2
@@ -98,3 +101,13 @@ echo "合并配对二维码："
 echo
 echo "如果二维码已经滚出终端，可以随时重新显示："
 echo "bash $APP_DIR/scripts/show-companion-pairing.sh"
+
+echo
+echo "ChatGPT 插件"
+if [[ -n "$CHATGPT_BRIDGE_WEBSTORE_URL" ]]; then
+  echo "Chrome 安装链接：$CHATGPT_BRIDGE_WEBSTORE_URL"
+else
+  echo "Chrome 插件包：https://github.com/$CHATGPT_BRIDGE_RELEASE_REPO/releases/download/$CHATGPT_BRIDGE_VERSION/007codex-chatgpt-bridge-$CHATGPT_BRIDGE_VERSION.zip"
+  echo "本机插件目录：$APP_DIR/apps/chrome-chatgpt-bridge"
+fi
+echo "安装后请在 Chrome 打开 https://chatgpt.com/ 并保持登录。"

@@ -17,6 +17,9 @@ CLOUDFLARED_PLIST="$HOME/Library/LaunchAgents/$CLOUDFLARED_LABEL.plist"
 PORT="${ICODEX_COMPANION_PORT:-}"
 HOST="${ICODEX_COMPANION_HOST:-0.0.0.0}"
 NAME="${ICODEX_COMPANION_NAME:-007Codex Companion}"
+CHATGPT_BRIDGE_VERSION="${ICODEX_CHATGPT_BRIDGE_VERSION:-$VERSION}"
+CHATGPT_BRIDGE_RELEASE_REPO="${ICODEX_CHATGPT_BRIDGE_RELEASE_REPO:-$RELEASE_REPO}"
+CHATGPT_BRIDGE_WEBSTORE_URL="${ICODEX_CHATGPT_BRIDGE_WEBSTORE_URL:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -30,6 +33,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --version)
       VERSION="${2:-}"
+      CHATGPT_BRIDGE_VERSION="${ICODEX_CHATGPT_BRIDGE_VERSION:-$VERSION}"
       shift 2
       ;;
     --home)
@@ -209,3 +213,13 @@ echo
 echo "007Codex Companion installed and running."
 echo "If the QR code has scrolled out of the terminal, rerun:"
 echo "bash $APP_DIR/scripts/show-companion-pairing.sh"
+
+echo
+echo "ChatGPT 插件"
+if [[ -n "$CHATGPT_BRIDGE_WEBSTORE_URL" ]]; then
+  echo "Chrome 安装链接：$CHATGPT_BRIDGE_WEBSTORE_URL"
+else
+  echo "Chrome 插件包：https://github.com/$CHATGPT_BRIDGE_RELEASE_REPO/releases/download/$CHATGPT_BRIDGE_VERSION/007codex-chatgpt-bridge-$CHATGPT_BRIDGE_VERSION.zip"
+  echo "本机插件目录：$APP_DIR/apps/chrome-chatgpt-bridge"
+fi
+echo "安装后请在 Chrome 打开 https://chatgpt.com/ 并保持登录。"

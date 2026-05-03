@@ -26,6 +26,28 @@ The local Companion port is selected automatically. Port `3939` is preferred,
 but if it is already occupied the installer chooses the next available port and
 stores it in the local config.
 
+## ChatGPT Bridge
+
+The ChatGPT feature needs the Chrome extension on the tester's own Mac.
+After Companion is installed, the terminal prints the ChatGPT extension entry.
+
+Current beta asset:
+
+```text
+https://github.com/danxizuo/007Codex-companion/releases/download/v0.1.0-beta.2/007codex-chatgpt-bridge-v0.1.0-beta.2.zip
+```
+
+Until the extension is listed in Chrome Web Store, testers can use Chrome
+developer mode and load the installed local folder:
+
+```text
+~/.icodex-companion/app/apps/chrome-chatgpt-bridge
+```
+
+Chrome must stay logged in to `https://chatgpt.com/`. The extension does not
+use the OpenAI API; it sends queued ChatGPT requests from Companion to the
+logged-in ChatGPT web page and returns the web answer to Companion.
+
 ## Start or Restart
 
 After installation, the iOS app can show a short Mac command for starting or
