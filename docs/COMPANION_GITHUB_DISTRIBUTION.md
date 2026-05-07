@@ -45,6 +45,7 @@ The installer and release archive are downloaded from the public repository `dan
 这条命令会自动完成：
 
 - 如果本机缺少 Node.js、pnpm 或 cloudflared，优先通过 `winget` 安装。
+- 安装或修复 Windows 端 Codex app-server 运行时，并把真实 `codex.exe` 所在目录写入用户 PATH。
 - 下载当前 GitHub Release 里的 Companion 包。
 - 写入 Windows 本机配置和访问密钥。
 - 注册 `DeskRelayCompanion` 计划任务，开机登录后自动启动 Companion。

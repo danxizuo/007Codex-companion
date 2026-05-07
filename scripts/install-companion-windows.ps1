@@ -107,6 +107,91 @@ function Ensure-Pnpm {
   return $pnpm
 }
 
+function Get-CodexExePath {
+  $candidates = @(
+    (Join-Path $env:LOCALAPPDATA "OpenAI\Codex\bin\codex.exe"),
+    (Join-Path $env:APPDATA "npm\node_modules\@openai\codex\node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\codex\codex.exe"),
+    (Join-Path $env:APPDATA "npm\node_modules\@openai\codex\node_modules\@openai\codex-win32-arm64\vendor\aarch64-pc-windows-msvc\codex\codex.exe")
+  )
+
+  foreach ($candidate in $candidates) {
+    if (Test-Path $candidate) {
+      return $candidate
+    }
+  }
+  return $null
+}
+
+function Test-VersionAtLeast {
+  param(
+    [string]$VersionOutput,
+    [int]$Major,
+    [int]$Minor,
+    [int]$Patch
+  )
+
+  if ($VersionOutput -notmatch "(\d+)\.(\d+)\.(\d+)") {
+    return $false
+  }
+
+  $actualMajor = [int]$Matches[1]
+  $actualMinor = [int]$Matches[2]
+  $actualPatch = [int]$Matches[3]
+  if ($actualMajor -ne $Major) {
+    return $actualMajor -gt $Major
+  }
+  if ($actualMinor -ne $Minor) {
+    return $actualMinor -gt $Minor
+  }
+  return $actualPatch -ge $Patch
+}
+
+function Add-UserPathPrefix {
+  param([string]$Directory)
+  $normalizedDirectory = $Directory.TrimEnd("\")
+  $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+  $parts = $userPath -split ";" | Where-Object {
+    $_ -and ($_.TrimEnd("\") -ne $normalizedDirectory)
+  }
+  [Environment]::SetEnvironmentVariable("Path", ($Directory + ";" + ($parts -join ";")), "User")
+  $env:Path = @($Directory, $env:Path) -join ";"
+}
+
+function Ensure-CodexCli {
+  $codexExe = Get-CodexExePath
+  $shouldInstall = $true
+  if ($codexExe) {
+    try {
+      $versionOutput = (& $codexExe --version 2>$null | Out-String).Trim()
+      $shouldInstall = -not (Test-VersionAtLeast -VersionOutput $versionOutput -Major 0 -Minor 128 -Patch 0)
+    } catch {
+      $shouldInstall = $true
+    }
+  }
+
+  if ($shouldInstall) {
+    $npm = Get-CommandPath @("npm.cmd", "npm.exe", "npm")
+    if (-not $npm) {
+      throw "npm is unavailable. Install Node.js LTS first, then rerun this script."
+    }
+
+    Write-Step "Installing Codex app-server runtime"
+    & $npm install -g "@openai/codex@0.128.0"
+    if ($LASTEXITCODE -ne 0) {
+      throw "Failed to install @openai/codex."
+    }
+    Add-CurrentPath
+    $codexExe = Get-CodexExePath
+  }
+
+  if (-not $codexExe) {
+    throw "Codex app-server executable was not found after installation."
+  }
+
+  Add-UserPathPrefix -Directory (Split-Path $codexExe -Parent)
+  return $codexExe
+}
+
 function Ensure-Cloudflared {
   $cloudflared = Get-CommandPath @("cloudflared.exe", "cloudflared")
   if (-not $cloudflared) {
@@ -381,6 +466,8 @@ Write-Step "Installing Companion runtime dependencies"
 if ($LASTEXITCODE -ne 0) {
   throw "Failed to install Companion runtime dependencies."
 }
+$codexExe = Ensure-CodexCli
+Write-Host "Codex app-server runtime is available: $codexExe"
 
 $selectedPort = Find-AvailablePort -PreferredPort $Port
 $cliPath = Join-Path $appDir "packages\companion\dist\cli.js"
