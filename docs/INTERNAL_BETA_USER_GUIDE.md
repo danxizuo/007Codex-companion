@@ -90,6 +90,8 @@ Windows 用户可以在 PowerShell 执行：
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\.deskrelay-companion\app\scripts\show-companion-pairing-windows.ps1"
 ```
 
+如果 iPhone 提示二维码无效，请重新执行上面的显示二维码命令。Windows 用户如果仍然无效，请重新运行测试负责人给你的 Windows 专用安装命令，让电脑下载最新 Companion 包后再扫码。
+
 ## 第三步：开始使用
 
 配对完成后，你可以在 iPhone 上进行这些操作：
