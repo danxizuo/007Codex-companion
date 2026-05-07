@@ -1,15 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-INSTALL_HOME="${ICODEX_COMPANION_HOME:-$HOME/.icodex-companion}"
-CONFIG_FILE="${ICODEX_COMPANION_CONFIG:-$INSTALL_HOME/config.json}"
-AUTH_FILE="${ICODEX_COMPANION_AUTH_TOKEN_FILE:-$INSTALL_HOME/auth-token}"
-LOG_DIR="$HOME/Library/Logs/iCodexCompanion"
-CLOUDFLARED_LABEL="com.danxizuo.icodex-companion-cloudflared"
+read_deskrelay_env() {
+  local primary="$1"
+  local legacy="$2"
+  local fallback="${3-}"
+  local value="${!primary-}"
+  if [[ -n "$value" ]]; then
+    printf '%s' "$value"
+    return
+  fi
+  value="${!legacy-}"
+  if [[ -n "$value" ]]; then
+    printf '%s' "$value"
+    return
+  fi
+  printf '%s' "$fallback"
+}
+
+INSTALL_HOME="$(read_deskrelay_env DESKRELAY_COMPANION_HOME ICODEX_COMPANION_HOME "$HOME/.deskrelay-companion")"
+CONFIG_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_CONFIG ICODEX_COMPANION_CONFIG "$INSTALL_HOME/config.json")"
+AUTH_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_AUTH_TOKEN_FILE ICODEX_COMPANION_AUTH_TOKEN_FILE "$INSTALL_HOME/auth-token")"
+LOG_DIR="$HOME/Library/Logs/DeskRelayCompanion"
+CLOUDFLARED_LABEL="com.deskrelay.codex.companion-cloudflared"
 CLOUDFLARED_PLIST="$HOME/Library/LaunchAgents/$CLOUDFLARED_LABEL.plist"
 CLOUDFLARED_CONFIG="${CLOUDFLARED_CONFIG:-$HOME/.cloudflared/config.yml}"
 CLOUDFLARED_BIN="${CLOUDFLARED_BIN:-$(command -v cloudflared || true)}"
-CLOUDFLARED_TOKEN="${ICODEX_CLOUDFLARED_TOKEN:-}"
+CLOUDFLARED_TOKEN="$(read_deskrelay_env DESKRELAY_CLOUDFLARED_TOKEN ICODEX_CLOUDFLARED_TOKEN)"
 NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 LAUNCH_DOMAIN="gui/$(id -u)"
 
