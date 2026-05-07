@@ -171,19 +171,27 @@ function Stop-AndRemoveTask {
 }
 
 function New-LongRunningTaskSettings {
-  try {
-    return New-ScheduledTaskSettingsSet `
-      -AllowStartIfOnBatteries `
-      -DisallowStartIfOnBatteries:$false `
-      -ExecutionTimeLimit ([TimeSpan]::Zero) `
-      -RestartCount 3 `
-      -RestartInterval (New-TimeSpan -Minutes 1)
-  } catch {
-    return New-ScheduledTaskSettingsSet `
-      -AllowStartIfOnBatteries `
-      -DisallowStartIfOnBatteries:$false `
-      -ExecutionTimeLimit ([TimeSpan]::Zero)
+  $command = Get-Command New-ScheduledTaskSettingsSet
+  $supported = $command.Parameters
+  $settingsArgs = @{}
+
+  if ($supported.ContainsKey("AllowStartIfOnBatteries")) {
+    $settingsArgs["AllowStartIfOnBatteries"] = $true
   }
+  if ($supported.ContainsKey("DontStopIfGoingOnBatteries")) {
+    $settingsArgs["DontStopIfGoingOnBatteries"] = $true
+  }
+  if ($supported.ContainsKey("ExecutionTimeLimit")) {
+    $settingsArgs["ExecutionTimeLimit"] = [TimeSpan]::Zero
+  }
+  if ($supported.ContainsKey("RestartCount")) {
+    $settingsArgs["RestartCount"] = 3
+  }
+  if ($supported.ContainsKey("RestartInterval")) {
+    $settingsArgs["RestartInterval"] = New-TimeSpan -Minutes 1
+  }
+
+  return New-ScheduledTaskSettingsSet @settingsArgs
 }
 
 function Quote-TaskArgument {
