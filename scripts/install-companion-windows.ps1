@@ -9,7 +9,7 @@ param(
   [string]$InstallHome = $(if ($env:DESKRELAY_COMPANION_HOME) { $env:DESKRELAY_COMPANION_HOME } elseif ($env:ICODEX_COMPANION_HOME) { $env:ICODEX_COMPANION_HOME } else { Join-Path $env:USERPROFILE ".deskrelay-companion" }),
   [string]$HostName = $(if ($env:DESKRELAY_COMPANION_HOST) { $env:DESKRELAY_COMPANION_HOST } elseif ($env:ICODEX_COMPANION_HOST) { $env:ICODEX_COMPANION_HOST } else { "0.0.0.0" }),
   [int]$Port = $(if ($env:DESKRELAY_COMPANION_PORT) { [int]$env:DESKRELAY_COMPANION_PORT } elseif ($env:ICODEX_COMPANION_PORT) { [int]$env:ICODEX_COMPANION_PORT } else { 3939 }),
-  [string]$Name = $(if ($env:DESKRELAY_COMPANION_NAME) { $env:DESKRELAY_COMPANION_NAME } elseif ($env:ICODEX_COMPANION_NAME) { $env:ICODEX_COMPANION_NAME } else { "DeskRelay for Codex Companion" }),
+  [string]$Name = $(if ($env:DESKRELAY_COMPANION_NAME) { $env:DESKRELAY_COMPANION_NAME } elseif ($env:ICODEX_COMPANION_NAME) { $env:ICODEX_COMPANION_NAME } else { "DeskRelay Windows Companion" }),
   [switch]$SkipCloudflared
 )
 
@@ -425,7 +425,10 @@ if (-not $SkipCloudflared -and $CloudflaredToken) {
 }
 
 Write-Step "Pairing QR code"
-$pairArgs = @($cliPath, "pair", "--config", $configFile, "--connection-url", $publicBaseUrl)
+$pairArgs = @($cliPath, "pair", "--config", $configFile)
+if ($publicBaseUrl) {
+  $pairArgs += @("--connection-url", $publicBaseUrl)
+}
 $lanBaseUrl = Get-LanBaseUrl -StatusPort $selectedPort
 if ($lanBaseUrl) {
   $pairArgs += @("--connection-url", $lanBaseUrl)
