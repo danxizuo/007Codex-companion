@@ -3,14 +3,8 @@ set -euo pipefail
 
 read_deskrelay_env() {
   local primary="$1"
-  local legacy="$2"
-  local fallback="${3-}"
+  local fallback="${2-}"
   local value="${!primary-}"
-  if [[ -n "$value" ]]; then
-    printf '%s' "$value"
-    return
-  fi
-  value="${!legacy-}"
   if [[ -n "$value" ]]; then
     printf '%s' "$value"
     return
@@ -19,20 +13,21 @@ read_deskrelay_env() {
 }
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-INSTALL_HOME="$(read_deskrelay_env DESKRELAY_COMPANION_HOME ICODEX_COMPANION_HOME "$HOME/.deskrelay-companion")"
-CONFIG_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_CONFIG ICODEX_COMPANION_CONFIG "$INSTALL_HOME/config.json")"
-AUTH_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_AUTH_TOKEN_FILE ICODEX_COMPANION_AUTH_TOKEN_FILE "$INSTALL_HOME/auth-token")"
-HOST="$(read_deskrelay_env DESKRELAY_COMPANION_HOST ICODEX_COMPANION_HOST "0.0.0.0")"
+INSTALL_HOME="$(read_deskrelay_env DESKRELAY_COMPANION_HOME "$HOME/.deskrelay-companion")"
+CONFIG_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_CONFIG "$INSTALL_HOME/config.json")"
+AUTH_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_AUTH_TOKEN_FILE "$INSTALL_HOME/auth-token")"
+HOST="$(read_deskrelay_env DESKRELAY_COMPANION_HOST "0.0.0.0")"
 LOG_DIR="$HOME/Library/Logs/DeskRelayCompanion"
-APP_SERVER_TRANSPORT="$(read_deskrelay_env DESKRELAY_COMPANION_APP_SERVER_TRANSPORT_OVERRIDE ICODEX_COMPANION_APP_SERVER_TRANSPORT_OVERRIDE "websocket")"
-APP_SERVER_WEBSOCKET_URL="$(read_deskrelay_env DESKRELAY_COMPANION_APP_SERVER_WEBSOCKET_URL_OVERRIDE ICODEX_COMPANION_APP_SERVER_WEBSOCKET_URL_OVERRIDE "ws://127.0.0.1:8390")"
-APP_SERVER_WEBSOCKET_PERSISTENT="$(read_deskrelay_env DESKRELAY_COMPANION_APP_SERVER_WEBSOCKET_PERSISTENT_OVERRIDE ICODEX_COMPANION_APP_SERVER_WEBSOCKET_PERSISTENT_OVERRIDE "1")"
+APP_SERVER_TRANSPORT="$(read_deskrelay_env DESKRELAY_COMPANION_APP_SERVER_TRANSPORT_OVERRIDE "websocket")"
+APP_SERVER_WEBSOCKET_URL="$(read_deskrelay_env DESKRELAY_COMPANION_APP_SERVER_WEBSOCKET_URL_OVERRIDE "ws://127.0.0.1:8390")"
+APP_SERVER_WEBSOCKET_PERSISTENT="$(read_deskrelay_env DESKRELAY_COMPANION_APP_SERVER_WEBSOCKET_PERSISTENT_OVERRIDE "1")"
 COMPANION_LABEL="com.deskrelay.codex.companion"
 COMPANION_PLIST="$HOME/Library/LaunchAgents/$COMPANION_LABEL.plist"
 LAUNCH_DOMAIN="gui/$(id -u)"
 COMPANION_TARGET="$LAUNCH_DOMAIN/$COMPANION_LABEL"
 NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 CLI_PATH="$APP_DIR/packages/companion/dist/cli.js"
+LEGACY_CLEANUP_SCRIPT="$APP_DIR/scripts/remove-legacy-companion-service.sh"
 
 if [[ -z "$NODE_BIN" || ! -x "$NODE_BIN" ]]; then
   echo "未找到 Node.js，无法启动 Companion。" >&2
@@ -49,11 +44,8 @@ if [[ ! -f "$COMPANION_PLIST" ]]; then
   exit 1
 fi
 
-if [[ -z "${DESKRELAY_COMPANION_AUTH_TOKEN_FILE:-}" && -z "${ICODEX_COMPANION_AUTH_TOKEN_FILE:-}" ]]; then
+if [[ -z "${DESKRELAY_COMPANION_AUTH_TOKEN_FILE:-}" ]]; then
   PLIST_AUTH_FILE="$(/usr/libexec/PlistBuddy -c 'Print :EnvironmentVariables:DESKRELAY_COMPANION_AUTH_TOKEN_FILE' "$COMPANION_PLIST" 2>/dev/null || true)"
-  if [[ -z "$PLIST_AUTH_FILE" ]]; then
-    PLIST_AUTH_FILE="$(/usr/libexec/PlistBuddy -c 'Print :EnvironmentVariables:ICODEX_COMPANION_AUTH_TOKEN_FILE' "$COMPANION_PLIST" 2>/dev/null || true)"
-  fi
   if [[ -n "$PLIST_AUTH_FILE" ]]; then
     AUTH_FILE="$PLIST_AUTH_FILE"
   fi
@@ -128,9 +120,13 @@ PLIST
 
 mkdir -p "$LOG_DIR"
 
+if [[ -f "$LEGACY_CLEANUP_SCRIPT" ]]; then
+  bash "$LEGACY_CLEANUP_SCRIPT"
+fi
+
 /bin/launchctl bootout "$LAUNCH_DOMAIN" "$COMPANION_PLIST" >/dev/null 2>&1 || true
 
-preferred_port="$(read_deskrelay_env DESKRELAY_COMPANION_PORT ICODEX_COMPANION_PORT "$(read_config_port)")"
+preferred_port="$(read_deskrelay_env DESKRELAY_COMPANION_PORT "$(read_config_port)")"
 preferred_port="${preferred_port:-3939}"
 port="$(choose_port "$preferred_port")" || {
   echo "没有找到可用端口，Companion 没有启动。" >&2

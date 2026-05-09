@@ -3,14 +3,8 @@ set -euo pipefail
 
 read_deskrelay_env() {
   local primary="$1"
-  local legacy="$2"
-  local fallback="${3-}"
+  local fallback="${2-}"
   local value="${!primary-}"
-  if [[ -n "$value" ]]; then
-    printf '%s' "$value"
-    return
-  fi
-  value="${!legacy-}"
   if [[ -n "$value" ]]; then
     printf '%s' "$value"
     return
@@ -18,27 +12,14 @@ read_deskrelay_env() {
   printf '%s' "$fallback"
 }
 
-CONFIG_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_CONFIG ICODEX_COMPANION_CONFIG "$HOME/.deskrelay-companion/config.json")"
-AUTH_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_AUTH_TOKEN_FILE ICODEX_COMPANION_AUTH_TOKEN_FILE "$HOME/.deskrelay-companion/auth-token")"
-LABEL="$(read_deskrelay_env DESKRELAY_COMPANION_LAUNCH_LABEL ICODEX_COMPANION_LAUNCH_LABEL "com.deskrelay.codex.companion")"
-LEGACY_LABEL="com.danxizuo.icodex-companion"
+CONFIG_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_CONFIG "$HOME/.deskrelay-companion/config.json")"
+AUTH_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_AUTH_TOKEN_FILE "$HOME/.deskrelay-companion/auth-token")"
+LABEL="$(read_deskrelay_env DESKRELAY_COMPANION_LAUNCH_LABEL "com.deskrelay.codex.companion")"
 NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 if [[ -z "$NODE_BIN" && -x /opt/miniconda3/bin/node ]]; then
   NODE_BIN="/opt/miniconda3/bin/node"
 fi
 
-if ! launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1 \
-  && launchctl print "gui/$(id -u)/$LEGACY_LABEL" >/dev/null 2>&1; then
-  CONFIG_FILE="$HOME/.icodex-companion/config.json"
-  AUTH_FILE="$HOME/.icodex-companion/auth-token"
-fi
-
-if [[ ! -f "$CONFIG_FILE" && -f "$HOME/.icodex-companion/config.json" ]]; then
-  CONFIG_FILE="$HOME/.icodex-companion/config.json"
-fi
-if [[ ! -f "$AUTH_FILE" && -f "$HOME/.icodex-companion/auth-token" ]]; then
-  AUTH_FILE="$HOME/.icodex-companion/auth-token"
-fi
 if [[ ! -f "$AUTH_FILE" && -f "$HOME/.codex/deskrelay-companion-auth-token" ]]; then
   AUTH_FILE="$HOME/.codex/deskrelay-companion-auth-token"
 fi
@@ -81,15 +62,12 @@ if [[ -n "$PUBLIC_BASE_URL" ]]; then
 fi
 echo
 
-for candidate in "$LABEL" "$LEGACY_LABEL"; do
-  if launchctl print "gui/$(id -u)/$candidate" >/dev/null 2>&1; then
-    echo "LaunchAgent：$candidate"
-    launchctl print "gui/$(id -u)/$candidate" 2>/dev/null \
-      | awk '/state =|pid =|path =|working directory =/{ print }'
-    echo
-    break
-  fi
-done
+if launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1; then
+  echo "LaunchAgent：$LABEL"
+  launchctl print "gui/$(id -u)/$LABEL" 2>/dev/null \
+    | awk '/state =|pid =|path =|working directory =/{ print }'
+  echo
+fi
 
 STATUS_BODY="$(mktemp)"
 cleanup() {

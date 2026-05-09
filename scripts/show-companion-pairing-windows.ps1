@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [string]$InstallHome = $(if ($env:DESKRELAY_COMPANION_HOME) { $env:DESKRELAY_COMPANION_HOME } elseif ($env:ICODEX_COMPANION_HOME) { $env:ICODEX_COMPANION_HOME } else { Join-Path $env:USERPROFILE ".deskrelay-companion" })
+  [string]$InstallHome = $(if ($env:DESKRELAY_COMPANION_HOME) { $env:DESKRELAY_COMPANION_HOME } else { Join-Path $env:USERPROFILE ".deskrelay-companion" })
 )
 
 Set-StrictMode -Version Latest

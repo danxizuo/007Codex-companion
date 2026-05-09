@@ -3,14 +3,8 @@ set -euo pipefail
 
 read_deskrelay_env() {
   local primary="$1"
-  local legacy="$2"
-  local fallback="${3-}"
+  local fallback="${2-}"
   local value="${!primary-}"
-  if [[ -n "$value" ]]; then
-    printf '%s' "$value"
-    return
-  fi
-  value="${!legacy-}"
   if [[ -n "$value" ]]; then
     printf '%s' "$value"
     return
@@ -18,29 +12,18 @@ read_deskrelay_env() {
   printf '%s' "$fallback"
 }
 
-INSTALL_HOME="$(read_deskrelay_env DESKRELAY_COMPANION_HOME ICODEX_COMPANION_HOME "$HOME/.deskrelay-companion")"
-APP_DIR="$(read_deskrelay_env DESKRELAY_COMPANION_APP_DIR ICODEX_COMPANION_APP_DIR "$INSTALL_HOME/app")"
-CONFIG_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_CONFIG ICODEX_COMPANION_CONFIG "$INSTALL_HOME/config.json")"
-AUTH_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_AUTH_TOKEN_FILE ICODEX_COMPANION_AUTH_TOKEN_FILE "$INSTALL_HOME/auth-token")"
+INSTALL_HOME="$(read_deskrelay_env DESKRELAY_COMPANION_HOME "$HOME/.deskrelay-companion")"
+APP_DIR="$(read_deskrelay_env DESKRELAY_COMPANION_APP_DIR "$INSTALL_HOME/app")"
+CONFIG_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_CONFIG "$INSTALL_HOME/config.json")"
+AUTH_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_AUTH_TOKEN_FILE "$INSTALL_HOME/auth-token")"
 NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 if [[ -z "$NODE_BIN" && -x /opt/miniconda3/bin/node ]]; then
   NODE_BIN="/opt/miniconda3/bin/node"
 fi
 CLI_PATH="$APP_DIR/packages/companion/dist/cli.js"
-PRIMARY_LABEL="com.deskrelay.codex.companion"
-LEGACY_LABEL="com.danxizuo.icodex-companion"
-CHATGPT_BRIDGE_VERSION="$(read_deskrelay_env DESKRELAY_CHATGPT_BRIDGE_VERSION ICODEX_CHATGPT_BRIDGE_VERSION "v0.1.0-beta.2")"
-CHATGPT_BRIDGE_RELEASE_REPO="$(read_deskrelay_env DESKRELAY_CHATGPT_BRIDGE_RELEASE_REPO ICODEX_CHATGPT_BRIDGE_RELEASE_REPO "danxizuo/007Codex-companion")"
-CHATGPT_BRIDGE_WEBSTORE_URL="$(read_deskrelay_env DESKRELAY_CHATGPT_BRIDGE_WEBSTORE_URL ICODEX_CHATGPT_BRIDGE_WEBSTORE_URL)"
-
-if ! launchctl print "gui/$(id -u)/$PRIMARY_LABEL" >/dev/null 2>&1 \
-  && launchctl print "gui/$(id -u)/$LEGACY_LABEL" >/dev/null 2>&1; then
-  INSTALL_HOME="$HOME/.icodex-companion"
-  APP_DIR="$INSTALL_HOME/app"
-  CONFIG_FILE="$INSTALL_HOME/config.json"
-  AUTH_FILE="$INSTALL_HOME/auth-token"
-  CLI_PATH="$APP_DIR/packages/companion/dist/cli.js"
-fi
+CHATGPT_BRIDGE_VERSION="$(read_deskrelay_env DESKRELAY_CHATGPT_BRIDGE_VERSION "v0.1.0-beta.2")"
+CHATGPT_BRIDGE_RELEASE_REPO="$(read_deskrelay_env DESKRELAY_CHATGPT_BRIDGE_RELEASE_REPO "danxizuo/007Codex-companion")"
+CHATGPT_BRIDGE_WEBSTORE_URL="$(read_deskrelay_env DESKRELAY_CHATGPT_BRIDGE_WEBSTORE_URL)"
 
 if [[ -z "$NODE_BIN" || ! -x "$NODE_BIN" ]]; then
   echo "未找到 Node.js，无法显示 Companion 配对二维码。" >&2

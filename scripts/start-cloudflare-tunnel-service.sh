@@ -4,22 +4,21 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LABEL="com.deskrelay.codex.companion-cloudflared"
 COMPANION_LABEL="com.deskrelay.codex.companion"
-LEGACY_COMPANION_LABEL="com.danxizuo.icodex-companion"
 PLIST_PATH="$HOME/Library/LaunchAgents/$LABEL.plist"
 LAUNCHCTL_TARGET="gui/$(id -u)/$LABEL"
 CLOUDFLARED_BIN="${CLOUDFLARED_BIN:-/opt/homebrew/bin/cloudflared}"
 CLOUDFLARED_CONFIG="${CLOUDFLARED_CONFIG:-$HOME/.cloudflared/config.yml}"
 CLOUDFLARED_LOG="${CLOUDFLARED_LOG:-$HOME/Library/Logs/DeskRelayCompanion/cloudflared.log}"
 CLOUDFLARED_PROTOCOL="${CLOUDFLARED_PROTOCOL:-auto}"
-CONFIG_FILE="${DESKRELAY_COMPANION_CONFIG:-${ICODEX_COMPANION_CONFIG:-$HOME/.deskrelay-companion/config.json}}"
+CONFIG_FILE="${DESKRELAY_COMPANION_CONFIG:-$HOME/.deskrelay-companion/config.json}"
 NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 if [[ -z "$NODE_BIN" && -x /opt/miniconda3/bin/node ]]; then
   NODE_BIN="/opt/miniconda3/bin/node"
 fi
-COMPANION_PORT="${DESKRELAY_COMPANION_PORT:-${ICODEX_COMPANION_PORT:-}}"
+COMPANION_PORT="${DESKRELAY_COMPANION_PORT:-}"
 LOCAL_STATUS_URL="http://127.0.0.1:${COMPANION_PORT}/status"
-PUBLIC_STATUS_URL="${DESKRELAY_CLOUDFLARE_STATUS_URL:-${ICODEX_CLOUDFLARE_STATUS_URL:-}}"
-AUTH_FILE="${DESKRELAY_COMPANION_AUTH_TOKEN_FILE:-${ICODEX_COMPANION_AUTH_TOKEN_FILE:-$HOME/.deskrelay-companion/auth-token}}"
+PUBLIC_STATUS_URL="${DESKRELAY_CLOUDFLARE_STATUS_URL:-}"
+AUTH_FILE="${DESKRELAY_COMPANION_AUTH_TOKEN_FILE:-$HOME/.deskrelay-companion/auth-token}"
 
 cd "$ROOT_DIR"
 
@@ -31,16 +30,6 @@ fi
 if [[ ! -f "$CLOUDFLARED_CONFIG" ]]; then
   echo "cloudflared config not found: $CLOUDFLARED_CONFIG" >&2
   exit 1
-fi
-
-if ! launchctl print "gui/$(id -u)/$COMPANION_LABEL" >/dev/null 2>&1 \
-  && launchctl print "gui/$(id -u)/$LEGACY_COMPANION_LABEL" >/dev/null 2>&1; then
-  if [[ -f "$HOME/.icodex-companion/config.json" ]]; then
-    CONFIG_FILE="$HOME/.icodex-companion/config.json"
-  fi
-  if [[ -f "$HOME/.icodex-companion/auth-token" ]]; then
-    AUTH_FILE="$HOME/.icodex-companion/auth-token"
-  fi
 fi
 
 read_config_value() {

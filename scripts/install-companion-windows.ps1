@@ -4,12 +4,12 @@ param(
   [string]$Domain,
 
   [string]$CloudflaredToken = $env:DESKRELAY_CLOUDFLARED_TOKEN,
-  [string]$Version = $(if ($env:DESKRELAY_COMPANION_VERSION) { $env:DESKRELAY_COMPANION_VERSION } elseif ($env:ICODEX_COMPANION_VERSION) { $env:ICODEX_COMPANION_VERSION } else { "v0.1.0-beta.2" }),
-  [string]$ReleaseRepo = $(if ($env:DESKRELAY_COMPANION_RELEASE_REPO) { $env:DESKRELAY_COMPANION_RELEASE_REPO } elseif ($env:ICODEX_COMPANION_RELEASE_REPO) { $env:ICODEX_COMPANION_RELEASE_REPO } else { "danxizuo/007Codex-companion" }),
-  [string]$InstallHome = $(if ($env:DESKRELAY_COMPANION_HOME) { $env:DESKRELAY_COMPANION_HOME } elseif ($env:ICODEX_COMPANION_HOME) { $env:ICODEX_COMPANION_HOME } else { Join-Path $env:USERPROFILE ".deskrelay-companion" }),
-  [string]$HostName = $(if ($env:DESKRELAY_COMPANION_HOST) { $env:DESKRELAY_COMPANION_HOST } elseif ($env:ICODEX_COMPANION_HOST) { $env:ICODEX_COMPANION_HOST } else { "0.0.0.0" }),
-  [int]$Port = $(if ($env:DESKRELAY_COMPANION_PORT) { [int]$env:DESKRELAY_COMPANION_PORT } elseif ($env:ICODEX_COMPANION_PORT) { [int]$env:ICODEX_COMPANION_PORT } else { 3939 }),
-  [string]$Name = $(if ($env:DESKRELAY_COMPANION_NAME) { $env:DESKRELAY_COMPANION_NAME } elseif ($env:ICODEX_COMPANION_NAME) { $env:ICODEX_COMPANION_NAME } else { "DeskRelay Windows Companion" }),
+  [string]$Version = $(if ($env:DESKRELAY_COMPANION_VERSION) { $env:DESKRELAY_COMPANION_VERSION } else { "v0.1.0-beta.2" }),
+  [string]$ReleaseRepo = $(if ($env:DESKRELAY_COMPANION_RELEASE_REPO) { $env:DESKRELAY_COMPANION_RELEASE_REPO } else { "danxizuo/007Codex-companion" }),
+  [string]$InstallHome = $(if ($env:DESKRELAY_COMPANION_HOME) { $env:DESKRELAY_COMPANION_HOME } else { Join-Path $env:USERPROFILE ".deskrelay-companion" }),
+  [string]$HostName = $(if ($env:DESKRELAY_COMPANION_HOST) { $env:DESKRELAY_COMPANION_HOST } else { "0.0.0.0" }),
+  [int]$Port = $(if ($env:DESKRELAY_COMPANION_PORT) { [int]$env:DESKRELAY_COMPANION_PORT } else { 3939 }),
+  [string]$Name = $(if ($env:DESKRELAY_COMPANION_NAME) { $env:DESKRELAY_COMPANION_NAME } else { "DeskRelay Windows Companion" }),
   [switch]$SkipCloudflared
 )
 
@@ -287,6 +287,11 @@ function Quote-TaskArgument {
   return $Value
 }
 
+function Quote-PowerShellString {
+  param([string]$Value)
+  return "'" + $Value.Replace("'", "''") + "'"
+}
+
 function Read-TaskResultCode {
   param([string]$TaskName)
   try {
@@ -358,23 +363,46 @@ function Start-CompanionTask {
     [string]$NodePath,
     [string]$CliPath,
     [string]$ConfigFile,
-    [string]$AppDir
+    [string]$AppDir,
+    [string]$LogDir
   )
 
   $taskName = "DeskRelayCompanion"
   Stop-AndRemoveTask -TaskName $taskName
 
-  $arguments = @(
-    (Quote-TaskArgument $CliPath),
-    "start",
-    "--config",
-    (Quote-TaskArgument $ConfigFile)
+  New-Item -ItemType Directory -Force $LogDir | Out-Null
+  $logFile = Join-Path $LogDir "$taskName.log"
+  $errorLogFile = Join-Path $LogDir "$taskName.err.log"
+
+  $nodeCommand = @(
+    "`$logFile = $(Quote-PowerShellString $logFile);",
+    "`$errorLogFile = $(Quote-PowerShellString $errorLogFile);",
+    "`$startedAt = Get-Date -Format o;",
+    "`"[`$startedAt] Starting DeskRelayCompanion`" >> `$logFile;",
+    "& $(Quote-PowerShellString $NodePath) $(Quote-PowerShellString $CliPath) start --config $(Quote-PowerShellString $ConfigFile) >> `$logFile 2>> `$errorLogFile;",
+    "`$exitCode = if (`$null -ne `$LASTEXITCODE) { `$LASTEXITCODE } else { 0 };",
+    "`$endedAt = Get-Date -Format o;",
+    "`"[`$endedAt] DeskRelayCompanion exited with code `$exitCode`" >> `$logFile;",
+    "exit `$exitCode"
   ) -join " "
 
-  $action = New-ScheduledTaskAction -Execute $NodePath -Argument $arguments -WorkingDirectory $AppDir
+  $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($nodeCommand))
+  $arguments = @(
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-EncodedCommand",
+    $encodedCommand
+  ) -join " "
+
+  $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arguments -WorkingDirectory $AppDir
   $trigger = New-ScheduledTaskTrigger -AtLogOn
   $settings = New-LongRunningTaskSettings
-  Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
+  $principal = New-ScheduledTaskPrincipal `
+    -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) `
+    -LogonType Interactive `
+    -RunLevel Highest
+  Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null
   Start-ScheduledTask -TaskName $taskName
 }
 
@@ -488,7 +516,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Step "Starting Companion scheduled task"
-Start-CompanionTask -NodePath $node -CliPath $cliPath -ConfigFile $configFile -AppDir $appDir
+Start-CompanionTask -NodePath $node -CliPath $cliPath -ConfigFile $configFile -AppDir $appDir -LogDir $logDir
 try {
   Wait-LocalStatus -StatusPort $selectedPort -AuthFile $authFile
 } catch {
