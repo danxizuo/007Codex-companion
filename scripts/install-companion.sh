@@ -1,39 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-read_deskrelay_env() {
-  local primary="$1"
-  local fallback="${2-}"
-  local value="${!primary-}"
-  if [[ -n "$value" ]]; then
-    printf '%s' "$value"
-    return
-  fi
-  printf '%s' "$fallback"
-}
-
-RELEASE_REPO="$(read_deskrelay_env DESKRELAY_COMPANION_RELEASE_REPO "danxizuo/007Codex-companion")"
-VERSION="$(read_deskrelay_env DESKRELAY_COMPANION_VERSION "v0.1.0-beta.2")"
+RELEASE_REPO="${CODEX007_COMPANION_RELEASE_REPO:-${ICODEX_COMPANION_RELEASE_REPO:-danxizuo/007Codex-companion}}"
+DEFAULT_COMPANION_VERSION="v0.1.0-beta.3"
+VERSION="${CODEX007_COMPANION_VERSION:-${ICODEX_COMPANION_VERSION:-$DEFAULT_COMPANION_VERSION}}"
 DOMAIN=""
-CLOUDFLARED_TOKEN="$(read_deskrelay_env DESKRELAY_CLOUDFLARED_TOKEN)"
-INSTALL_HOME="$(read_deskrelay_env DESKRELAY_COMPANION_HOME "$HOME/.deskrelay-companion")"
+CLOUDFLARED_TOKEN="${ICODEX_CLOUDFLARED_TOKEN:-}"
+INSTALL_HOME="${CODEX007_COMPANION_HOME:-${ICODEX_COMPANION_HOME:-$HOME/.007Codex-companion}}"
 APP_DIR="$INSTALL_HOME/app"
 CONFIG_FILE="$INSTALL_HOME/config.json"
 AUTH_FILE="$INSTALL_HOME/auth-token"
-LOG_DIR="$HOME/Library/Logs/DeskRelayCompanion"
-COMPANION_LABEL="com.deskrelay.codex.companion"
-CLOUDFLARED_LABEL="com.deskrelay.codex.companion-cloudflared"
+LOG_DIR="$HOME/Library/Logs/007Codex-companion"
+COMPANION_LABEL="com.danxizuo.007Codex-companion"
+CLOUDFLARED_LABEL="com.danxizuo.007Codex-companion-cloudflared"
+LEGACY_COMPANION_LABEL="com.danxizuo.icodex-companion"
+LEGACY_CLOUDFLARED_LABEL="com.danxizuo.icodex-companion-cloudflared"
+LEGACY_DESKRELAY_LABEL="com.deskrelay.codex.companion"
 COMPANION_PLIST="$HOME/Library/LaunchAgents/$COMPANION_LABEL.plist"
 CLOUDFLARED_PLIST="$HOME/Library/LaunchAgents/$CLOUDFLARED_LABEL.plist"
-PORT="$(read_deskrelay_env DESKRELAY_COMPANION_PORT)"
-HOST="$(read_deskrelay_env DESKRELAY_COMPANION_HOST "0.0.0.0")"
-NAME="$(read_deskrelay_env DESKRELAY_COMPANION_NAME "DeskRelay for Codex Companion")"
-APP_SERVER_TRANSPORT="$(read_deskrelay_env DESKRELAY_COMPANION_APP_SERVER_TRANSPORT_OVERRIDE "websocket")"
-APP_SERVER_WEBSOCKET_URL="$(read_deskrelay_env DESKRELAY_COMPANION_APP_SERVER_WEBSOCKET_URL_OVERRIDE "ws://127.0.0.1:8390")"
-APP_SERVER_WEBSOCKET_PERSISTENT="$(read_deskrelay_env DESKRELAY_COMPANION_APP_SERVER_WEBSOCKET_PERSISTENT_OVERRIDE "1")"
-CHATGPT_BRIDGE_VERSION="$(read_deskrelay_env DESKRELAY_CHATGPT_BRIDGE_VERSION "$VERSION")"
-CHATGPT_BRIDGE_RELEASE_REPO="$(read_deskrelay_env DESKRELAY_CHATGPT_BRIDGE_RELEASE_REPO "$RELEASE_REPO")"
-CHATGPT_BRIDGE_WEBSTORE_URL="$(read_deskrelay_env DESKRELAY_CHATGPT_BRIDGE_WEBSTORE_URL)"
+PORT="${CODEX007_COMPANION_PORT:-${ICODEX_COMPANION_PORT:-}}"
+HOST="${CODEX007_COMPANION_HOST:-${ICODEX_COMPANION_HOST:-0.0.0.0}}"
+NAME="${CODEX007_COMPANION_NAME:-${ICODEX_COMPANION_NAME:-007Codex-companion}}"
+APP_SERVER_TRANSPORT="${CODEX007_COMPANION_APP_SERVER_TRANSPORT_OVERRIDE:-${ICODEX_COMPANION_APP_SERVER_TRANSPORT_OVERRIDE:-websocket}}"
+APP_SERVER_WEBSOCKET_URL="${CODEX007_COMPANION_APP_SERVER_WEBSOCKET_URL_OVERRIDE:-${ICODEX_COMPANION_APP_SERVER_WEBSOCKET_URL_OVERRIDE:-ws://127.0.0.1:8390}}"
+APP_SERVER_WEBSOCKET_PERSISTENT="${CODEX007_COMPANION_APP_SERVER_WEBSOCKET_PERSISTENT_OVERRIDE:-${ICODEX_COMPANION_APP_SERVER_WEBSOCKET_PERSISTENT_OVERRIDE:-1}}"
+CHATGPT_BRIDGE_VERSION="${ICODEX_CHATGPT_BRIDGE_VERSION:-$VERSION}"
+CHATGPT_BRIDGE_RELEASE_REPO="${ICODEX_CHATGPT_BRIDGE_RELEASE_REPO:-$RELEASE_REPO}"
+CHATGPT_BRIDGE_WEBSTORE_URL="${ICODEX_CHATGPT_BRIDGE_WEBSTORE_URL:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -47,7 +40,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --version)
       VERSION="${2:-}"
-      CHATGPT_BRIDGE_VERSION="$(read_deskrelay_env DESKRELAY_CHATGPT_BRIDGE_VERSION "$VERSION")"
+      CHATGPT_BRIDGE_VERSION="${ICODEX_CHATGPT_BRIDGE_VERSION:-$VERSION}"
       shift 2
       ;;
     --home)
@@ -65,7 +58,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$DOMAIN" ]]; then
-  echo "Usage: install-companion.sh --domain u001.example.com [--cloudflared-token TOKEN]" >&2
+  echo "Usage: install-companion.sh --domain u001.sci2web.top [--cloudflared-token TOKEN]" >&2
   exit 2
 fi
 
@@ -110,7 +103,7 @@ fi
 
 mkdir -p "$INSTALL_HOME" "$LOG_DIR" "$HOME/Library/LaunchAgents"
 
-ARCHIVE_NAME="deskrelay-companion-$VERSION.tar.gz"
+ARCHIVE_NAME="007Codex-companion-$VERSION.tar.gz"
 ARCHIVE_URL="https://github.com/$RELEASE_REPO/releases/download/$VERSION/$ARCHIVE_NAME"
 TMP_DIR="$(mktemp -d)"
 cleanup() {
@@ -118,7 +111,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "Downloading DeskRelay for Codex Companion $VERSION..."
+echo "Downloading 007Codex-companion $VERSION..."
 curl -fL "$ARCHIVE_URL" -o "$TMP_DIR/$ARCHIVE_NAME"
 
 rm -rf "$APP_DIR"
@@ -127,12 +120,11 @@ tar -xzf "$TMP_DIR/$ARCHIVE_NAME" -C "$APP_DIR" --strip-components 1
 
 "$PNPM_BIN" -C "$APP_DIR" install --prod --frozen-lockfile
 
-if [[ -f "$APP_DIR/scripts/remove-legacy-companion-service.sh" ]]; then
-  bash "$APP_DIR/scripts/remove-legacy-companion-service.sh"
-fi
-
 launchctl bootout "gui/$(id -u)" "$COMPANION_PLIST" >/dev/null 2>&1 || true
 launchctl bootout "gui/$(id -u)" "$CLOUDFLARED_PLIST" >/dev/null 2>&1 || true
+launchctl bootout "gui/$(id -u)/$LEGACY_COMPANION_LABEL" >/dev/null 2>&1 || true
+launchctl bootout "gui/$(id -u)/$LEGACY_CLOUDFLARED_LABEL" >/dev/null 2>&1 || true
+launchctl bootout "gui/$(id -u)/$LEGACY_DESKRELAY_LABEL" >/dev/null 2>&1 || true
 
 if [[ -z "$PORT" ]]; then
   PORT="$(choose_port 3939)" || {
@@ -182,11 +174,11 @@ cat >"$COMPANION_PLIST" <<PLIST
   <string>$APP_DIR</string>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>DESKRELAY_COMPANION_APP_SERVER_TRANSPORT</key>
+    <key>CODEX007_COMPANION_APP_SERVER_TRANSPORT</key>
     <string>$APP_SERVER_TRANSPORT</string>
-    <key>DESKRELAY_COMPANION_APP_SERVER_WEBSOCKET_URL</key>
+    <key>CODEX007_COMPANION_APP_SERVER_WEBSOCKET_URL</key>
     <string>$APP_SERVER_WEBSOCKET_URL</string>
-    <key>DESKRELAY_COMPANION_APP_SERVER_WEBSOCKET_PERSISTENT</key>
+    <key>CODEX007_COMPANION_APP_SERVER_WEBSOCKET_PERSISTENT</key>
     <string>$APP_SERVER_WEBSOCKET_PERSISTENT</string>
   </dict>
   <key>StandardOutPath</key>
@@ -215,8 +207,8 @@ fi
 echo
 echo "Companion local service is healthy."
 if [[ -f "$APP_DIR/scripts/show-companion-pairing.sh" ]]; then
-  DESKRELAY_COMPANION_CONFIG="$CONFIG_FILE" \
-    DESKRELAY_COMPANION_AUTH_TOKEN_FILE="$AUTH_FILE" \
+  ICODEX_COMPANION_CONFIG="$CONFIG_FILE" \
+    ICODEX_COMPANION_AUTH_TOKEN_FILE="$AUTH_FILE" \
     bash "$APP_DIR/scripts/show-companion-pairing.sh"
 else
   echo "Pair this Mac with the iOS app using the QR code below:"
@@ -224,9 +216,9 @@ else
 fi
 
 if [[ -f "$APP_DIR/scripts/ensure-companion-cloudflare-route.sh" ]]; then
-  if ! DESKRELAY_CLOUDFLARED_TOKEN="$CLOUDFLARED_TOKEN" \
-    DESKRELAY_COMPANION_CONFIG="$CONFIG_FILE" \
-    DESKRELAY_COMPANION_AUTH_TOKEN_FILE="$AUTH_FILE" \
+  if ! ICODEX_CLOUDFLARED_TOKEN="$CLOUDFLARED_TOKEN" \
+    ICODEX_COMPANION_CONFIG="$CONFIG_FILE" \
+    ICODEX_COMPANION_AUTH_TOKEN_FILE="$AUTH_FILE" \
     bash "$APP_DIR/scripts/ensure-companion-cloudflare-route.sh"; then
     echo
     echo "Companion is installed and usable on the local network, but the public Cloudflare address is not healthy yet." >&2
@@ -237,7 +229,7 @@ if [[ -f "$APP_DIR/scripts/ensure-companion-cloudflare-route.sh" ]]; then
 fi
 
 echo
-echo "DeskRelay for Codex Companion installed and running."
+echo "007Codex-companion installed and running."
 echo "If the QR code has scrolled out of the terminal, rerun:"
 echo "bash $APP_DIR/scripts/show-companion-pairing.sh"
 
@@ -246,7 +238,7 @@ echo "ChatGPT 插件"
 if [[ -n "$CHATGPT_BRIDGE_WEBSTORE_URL" ]]; then
   echo "Chrome 安装链接：$CHATGPT_BRIDGE_WEBSTORE_URL"
 else
-  echo "Chrome 插件包：https://github.com/$CHATGPT_BRIDGE_RELEASE_REPO/releases/download/$CHATGPT_BRIDGE_VERSION/deskrelay-chatgpt-bridge-$CHATGPT_BRIDGE_VERSION.zip"
+  echo "Chrome 插件包：https://github.com/$CHATGPT_BRIDGE_RELEASE_REPO/releases/download/$CHATGPT_BRIDGE_VERSION/007codex-chatgpt-bridge-$CHATGPT_BRIDGE_VERSION.zip"
   echo "本机插件目录：$APP_DIR/apps/chrome-chatgpt-bridge"
 fi
 echo "安装后请在 Chrome 打开 https://chatgpt.com/ 并保持登录。"

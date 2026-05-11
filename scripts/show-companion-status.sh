@@ -1,33 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-read_deskrelay_env() {
-  local primary="$1"
-  local fallback="${2-}"
-  local value="${!primary-}"
-  if [[ -n "$value" ]]; then
-    printf '%s' "$value"
-    return
-  fi
-  printf '%s' "$fallback"
-}
-
-CONFIG_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_CONFIG "$HOME/.deskrelay-companion/config.json")"
-AUTH_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_AUTH_TOKEN_FILE "$HOME/.deskrelay-companion/auth-token")"
-LABEL="$(read_deskrelay_env DESKRELAY_COMPANION_LAUNCH_LABEL "com.deskrelay.codex.companion")"
-NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
-if [[ -z "$NODE_BIN" && -x /opt/miniconda3/bin/node ]]; then
-  NODE_BIN="/opt/miniconda3/bin/node"
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/miniconda3/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+DEFAULT_INSTALL_HOME="$HOME/.007Codex-companion"
+if [[ ! -d "$DEFAULT_INSTALL_HOME" && -d "$HOME/.icodex-companion" ]]; then
+  DEFAULT_INSTALL_HOME="$HOME/.icodex-companion"
+elif [[ ! -d "$DEFAULT_INSTALL_HOME" && -d "$HOME/.deskrelay-companion" ]]; then
+  DEFAULT_INSTALL_HOME="$HOME/.deskrelay-companion"
 fi
+INSTALL_HOME="${CODEX007_COMPANION_HOME:-${ICODEX_COMPANION_HOME:-$DEFAULT_INSTALL_HOME}}"
+CONFIG_FILE="${CODEX007_COMPANION_CONFIG:-${ICODEX_COMPANION_CONFIG:-$INSTALL_HOME/config.json}}"
+AUTH_FILE="${CODEX007_COMPANION_AUTH_TOKEN_FILE:-${ICODEX_COMPANION_AUTH_TOKEN_FILE:-$INSTALL_HOME/auth-token}}"
+NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 
-if [[ ! -f "$AUTH_FILE" && -f "$HOME/.codex/deskrelay-companion-auth-token" ]]; then
-  AUTH_FILE="$HOME/.codex/deskrelay-companion-auth-token"
+if [[ -z "$NODE_BIN" || ! -x "$NODE_BIN" ]]; then
+  echo "未找到 Node.js，无法读取 Companion 配置。" >&2
+  exit 1
 fi
 
 read_config_value() {
-  if [[ -z "$NODE_BIN" || ! -x "$NODE_BIN" || ! -f "$CONFIG_FILE" ]]; then
-    return 0
-  fi
   "$NODE_BIN" - "$CONFIG_FILE" "$1" <<'NODE'
 const fs = require("fs");
 const [path, key] = process.argv.slice(2);
@@ -39,12 +30,23 @@ try {
 NODE
 }
 
-PORT="$(read_config_value port)"
-PORT="${PORT:-3939}"
-PUBLIC_BASE_URL="$(read_config_value publicBaseURL)"
-LOCAL_STATUS_URL="http://127.0.0.1:${PORT}/status"
-AUTH_ARGS=()
+if [[ -f "$CONFIG_FILE" ]]; then
+  CONFIG_AUTH_FILE="$(read_config_value authTokenFile)"
+  if [[ -n "$CONFIG_AUTH_FILE" ]]; then
+    AUTH_FILE="$CONFIG_AUTH_FILE"
+  fi
+  PORT="$(read_config_value port)"
+else
+  PORT=""
+fi
 
+PORT="${PORT:-${CODEX007_COMPANION_PORT:-${ICODEX_COMPANION_PORT:-3939}}}"
+STATUS_URL="http://127.0.0.1:${PORT}/status"
+DIAGNOSTICS_URL="http://127.0.0.1:${PORT}/diagnostics"
+AUTH_ARGS=()
+if [[ ! -f "$AUTH_FILE" && -f "$HOME/.codex/icodex-companion-auth-token" ]]; then
+  AUTH_FILE="$HOME/.codex/icodex-companion-auth-token"
+fi
 if [[ -f "$AUTH_FILE" ]]; then
   AUTH_TOKEN="$(tr -d '\r\n' < "$AUTH_FILE")"
   if [[ -n "$AUTH_TOKEN" ]]; then
@@ -52,51 +54,48 @@ if [[ -f "$AUTH_FILE" ]]; then
   fi
 fi
 
-echo "Companion 状态"
-echo
-echo "配置文件：$CONFIG_FILE"
-echo "访问密钥：$AUTH_FILE"
-echo "本机地址：$LOCAL_STATUS_URL"
-if [[ -n "$PUBLIC_BASE_URL" ]]; then
-  echo "公网地址：$PUBLIC_BASE_URL"
-fi
-echo
+echo "007Codex-companion 服务状态"
+echo "本机地址：$STATUS_URL"
 
-if launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1; then
-  echo "LaunchAgent：$LABEL"
-  launchctl print "gui/$(id -u)/$LABEL" 2>/dev/null \
-    | awk '/state =|pid =|path =|working directory =/{ print }'
-  echo
+if launchctl print "gui/$(id -u)/com.danxizuo.007Codex-companion" >/dev/null 2>&1; then
+  echo "LaunchAgent：com.danxizuo.007Codex-companion 已加载"
+elif launchctl print "gui/$(id -u)/com.danxizuo.icodex-companion" >/dev/null 2>&1; then
+  echo "LaunchAgent：com.danxizuo.icodex-companion 已加载"
+elif launchctl print "gui/$(id -u)/com.deskrelay.codex.companion" >/dev/null 2>&1; then
+  echo "LaunchAgent：com.deskrelay.codex.companion 已加载"
+else
+  echo "LaunchAgent：未发现已加载的 Companion LaunchAgent"
+fi
+
+LISTENER_PID="$(lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
+if [[ -n "$LISTENER_PID" ]]; then
+  echo "监听进程：PID ${LISTENER_PID}，端口 ${PORT}"
+else
+  echo "监听进程：未发现端口 ${PORT} 的监听进程"
 fi
 
 STATUS_BODY="$(mktemp)"
+DIAGNOSTICS_BODY="$(mktemp)"
 cleanup() {
-  rm -f "$STATUS_BODY"
+  rm -f "$STATUS_BODY" "$DIAGNOSTICS_BODY"
 }
 trap cleanup EXIT
 
-HTTP_CODE="$(curl -sS -o "$STATUS_BODY" -w '%{http_code}' "${AUTH_ARGS[@]}" "$LOCAL_STATUS_URL" || true)"
-echo "本机 /status：$HTTP_CODE"
-if [[ "$HTTP_CODE" == "200" ]]; then
-  if [[ -n "$NODE_BIN" && -x "$NODE_BIN" ]]; then
-    "$NODE_BIN" - "$STATUS_BODY" <<'NODE'
+STATUS_CODE="$(curl -sS -o "$STATUS_BODY" -w '%{http_code}' "${AUTH_ARGS[@]}" "$STATUS_URL" || true)"
+echo "状态接口：HTTP $STATUS_CODE"
+if [[ "$STATUS_CODE" == "200" ]]; then
+  "$NODE_BIN" - "$STATUS_BODY" <<'NODE'
 const fs = require("fs");
-try {
-  const payload = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-  console.log(`名称：${payload.name ?? ""}`);
-  console.log(`连接：${payload.mode ?? payload.status ?? ""}`);
-  console.log(`app-server：${payload.appServer?.connectionStatus ?? ""}`);
-  console.log(`会话数：${payload.runtime?.threads ?? ""}`);
-} catch {
-  process.exit(1);
-}
+const payload = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const root = payload.payload?.root ?? payload.root ?? payload ?? {};
+const name = root.name ?? "unknown";
+const mode = root.mode ?? root.status ?? "unknown";
+const port = root.port ?? "unknown";
+console.log(`设备：${name}`);
+console.log(`模式：${mode}`);
+console.log(`服务端口：${port}`);
 NODE
-  else
-    cat "$STATUS_BODY"
-    echo
-  fi
-else
-  cat "$STATUS_BODY" >&2 || true
-  echo >&2
-  exit 1
 fi
+
+DIAGNOSTICS_CODE="$(curl -sS -o "$DIAGNOSTICS_BODY" -w '%{http_code}' "${AUTH_ARGS[@]}" "$DIAGNOSTICS_URL" || true)"
+echo "诊断接口：HTTP $DIAGNOSTICS_CODE"

@@ -1,29 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-read_deskrelay_env() {
-  local primary="$1"
-  local fallback="${2-}"
-  local value="${!primary-}"
-  if [[ -n "$value" ]]; then
-    printf '%s' "$value"
-    return
-  fi
-  printf '%s' "$fallback"
-}
-
-INSTALL_HOME="$(read_deskrelay_env DESKRELAY_COMPANION_HOME "$HOME/.deskrelay-companion")"
-APP_DIR="$(read_deskrelay_env DESKRELAY_COMPANION_APP_DIR "$INSTALL_HOME/app")"
-CONFIG_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_CONFIG "$INSTALL_HOME/config.json")"
-AUTH_FILE="$(read_deskrelay_env DESKRELAY_COMPANION_AUTH_TOKEN_FILE "$INSTALL_HOME/auth-token")"
-NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
-if [[ -z "$NODE_BIN" && -x /opt/miniconda3/bin/node ]]; then
-  NODE_BIN="/opt/miniconda3/bin/node"
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/miniconda3/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+DEFAULT_INSTALL_HOME="$HOME/.007Codex-companion"
+if [[ ! -d "$DEFAULT_INSTALL_HOME" && -d "$HOME/.icodex-companion" ]]; then
+  DEFAULT_INSTALL_HOME="$HOME/.icodex-companion"
+elif [[ ! -d "$DEFAULT_INSTALL_HOME" && -d "$HOME/.deskrelay-companion" ]]; then
+  DEFAULT_INSTALL_HOME="$HOME/.deskrelay-companion"
 fi
+INSTALL_HOME="${CODEX007_COMPANION_HOME:-${ICODEX_COMPANION_HOME:-$DEFAULT_INSTALL_HOME}}"
+APP_DIR="${CODEX007_COMPANION_APP_DIR:-${ICODEX_COMPANION_APP_DIR:-$INSTALL_HOME/app}}"
+CONFIG_FILE="${CODEX007_COMPANION_CONFIG:-${ICODEX_COMPANION_CONFIG:-$INSTALL_HOME/config.json}}"
+AUTH_FILE="${CODEX007_COMPANION_AUTH_TOKEN_FILE:-${ICODEX_COMPANION_AUTH_TOKEN_FILE:-$INSTALL_HOME/auth-token}}"
+NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 CLI_PATH="$APP_DIR/packages/companion/dist/cli.js"
-CHATGPT_BRIDGE_VERSION="$(read_deskrelay_env DESKRELAY_CHATGPT_BRIDGE_VERSION "v0.1.0-beta.2")"
-CHATGPT_BRIDGE_RELEASE_REPO="$(read_deskrelay_env DESKRELAY_CHATGPT_BRIDGE_RELEASE_REPO "danxizuo/007Codex-companion")"
-CHATGPT_BRIDGE_WEBSTORE_URL="$(read_deskrelay_env DESKRELAY_CHATGPT_BRIDGE_WEBSTORE_URL)"
+CHATGPT_BRIDGE_VERSION="${CODEX007_CHATGPT_BRIDGE_VERSION:-${ICODEX_CHATGPT_BRIDGE_VERSION:-v0.1.0-beta.2}}"
+CHATGPT_BRIDGE_RELEASE_REPO="${ICODEX_CHATGPT_BRIDGE_RELEASE_REPO:-danxizuo/007Codex-companion}"
+CHATGPT_BRIDGE_WEBSTORE_URL="${ICODEX_CHATGPT_BRIDGE_WEBSTORE_URL:-}"
 
 if [[ -z "$NODE_BIN" || ! -x "$NODE_BIN" ]]; then
   echo "未找到 Node.js，无法显示 Companion 配对二维码。" >&2
@@ -86,7 +79,7 @@ if [[ -n "$LAN_IP" ]]; then
 fi
 
 echo
-echo "Companion 配对信息"
+echo "007Codex-companion 配对信息"
 echo
 
 PAIR_ARGS=(
@@ -121,7 +114,7 @@ echo "ChatGPT 插件"
 if [[ -n "$CHATGPT_BRIDGE_WEBSTORE_URL" ]]; then
   echo "Chrome 安装链接：$CHATGPT_BRIDGE_WEBSTORE_URL"
 else
-  echo "Chrome 插件包：https://github.com/$CHATGPT_BRIDGE_RELEASE_REPO/releases/download/$CHATGPT_BRIDGE_VERSION/deskrelay-chatgpt-bridge-$CHATGPT_BRIDGE_VERSION.zip"
+  echo "Chrome 插件包：https://github.com/$CHATGPT_BRIDGE_RELEASE_REPO/releases/download/$CHATGPT_BRIDGE_VERSION/007codex-chatgpt-bridge-$CHATGPT_BRIDGE_VERSION.zip"
   echo "本机插件目录：$APP_DIR/apps/chrome-chatgpt-bridge"
 fi
 echo "安装后请在 Chrome 打开 https://chatgpt.com/ 并保持登录。"

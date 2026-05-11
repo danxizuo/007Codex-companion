@@ -2,23 +2,18 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LABEL="com.deskrelay.codex.companion-cloudflared"
-COMPANION_LABEL="com.deskrelay.codex.companion"
+LABEL="com.danxizuo.007Codex-companion-cloudflared"
+LEGACY_LABEL="com.danxizuo.icodex-companion-cloudflared"
 PLIST_PATH="$HOME/Library/LaunchAgents/$LABEL.plist"
 LAUNCHCTL_TARGET="gui/$(id -u)/$LABEL"
 CLOUDFLARED_BIN="${CLOUDFLARED_BIN:-/opt/homebrew/bin/cloudflared}"
 CLOUDFLARED_CONFIG="${CLOUDFLARED_CONFIG:-$HOME/.cloudflared/config.yml}"
-CLOUDFLARED_LOG="${CLOUDFLARED_LOG:-$HOME/Library/Logs/DeskRelayCompanion/cloudflared.log}"
+CLOUDFLARED_LOG="${CLOUDFLARED_LOG:-$HOME/Library/Logs/007Codex-companion/cloudflared.log}"
 CLOUDFLARED_PROTOCOL="${CLOUDFLARED_PROTOCOL:-auto}"
-CONFIG_FILE="${DESKRELAY_COMPANION_CONFIG:-$HOME/.deskrelay-companion/config.json}"
-NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
-if [[ -z "$NODE_BIN" && -x /opt/miniconda3/bin/node ]]; then
-  NODE_BIN="/opt/miniconda3/bin/node"
-fi
-COMPANION_PORT="${DESKRELAY_COMPANION_PORT:-}"
+COMPANION_PORT="${CODEX007_COMPANION_PORT:-${ICODEX_COMPANION_PORT:-3939}}"
 LOCAL_STATUS_URL="http://127.0.0.1:${COMPANION_PORT}/status"
-PUBLIC_STATUS_URL="${DESKRELAY_CLOUDFLARE_STATUS_URL:-}"
-AUTH_FILE="${DESKRELAY_COMPANION_AUTH_TOKEN_FILE:-$HOME/.deskrelay-companion/auth-token}"
+PUBLIC_STATUS_URL="${ICODEX_CLOUDFLARE_STATUS_URL:-https://wwww.sci2web.top/status}"
+AUTH_FILE="${CODEX007_COMPANION_AUTH_TOKEN_FILE:-${ICODEX_COMPANION_AUTH_TOKEN_FILE:-$HOME/.007Codex-companion/auth-token}}"
 
 cd "$ROOT_DIR"
 
@@ -32,43 +27,6 @@ if [[ ! -f "$CLOUDFLARED_CONFIG" ]]; then
   exit 1
 fi
 
-read_config_value() {
-  if [[ ! -f "$CONFIG_FILE" ]]; then
-    return 0
-  fi
-  if [[ -z "$NODE_BIN" || ! -x "$NODE_BIN" ]]; then
-    return 0
-  fi
-  "$NODE_BIN" - "$CONFIG_FILE" "$1" <<'NODE' 2>/dev/null || true
-const fs = require("fs");
-const [path, key] = process.argv.slice(2);
-try {
-  const config = JSON.parse(fs.readFileSync(path, "utf8"));
-  const value = config[key];
-  if (value !== undefined && value !== null) process.stdout.write(String(value));
-} catch {}
-NODE
-}
-
-if [[ -z "$COMPANION_PORT" ]]; then
-  COMPANION_PORT="$(read_config_value port)"
-fi
-COMPANION_PORT="${COMPANION_PORT:-3939}"
-LOCAL_STATUS_URL="http://127.0.0.1:${COMPANION_PORT}/status"
-
-if [[ -z "$PUBLIC_STATUS_URL" ]]; then
-  PUBLIC_BASE_URL="$(read_config_value publicBaseURL)"
-  if [[ -n "$PUBLIC_BASE_URL" ]]; then
-    PUBLIC_STATUS_URL="${PUBLIC_BASE_URL%/}/status"
-  fi
-fi
-
-if [[ -z "$PUBLIC_STATUS_URL" ]]; then
-  echo "Public Cloudflare status URL is not configured." >&2
-  echo "Set DESKRELAY_CLOUDFLARE_STATUS_URL or publicBaseURL in $CONFIG_FILE." >&2
-  exit 1
-fi
-
 TUNNEL_ID="$(awk '/^tunnel:/ { print $2 }' "$CLOUDFLARED_CONFIG")"
 if [[ -z "$TUNNEL_ID" ]]; then
   echo "tunnel id not found in config: $CLOUDFLARED_CONFIG" >&2
@@ -76,8 +34,8 @@ if [[ -z "$TUNNEL_ID" ]]; then
 fi
 
 AUTH_ARGS=()
-if [[ ! -f "$AUTH_FILE" && -f "$HOME/.codex/deskrelay-companion-auth-token" ]]; then
-  AUTH_FILE="$HOME/.codex/deskrelay-companion-auth-token"
+if [[ ! -f "$AUTH_FILE" && -f "$HOME/.codex/icodex-companion-auth-token" ]]; then
+  AUTH_FILE="$HOME/.codex/icodex-companion-auth-token"
 fi
 
 if [[ -f "$AUTH_FILE" ]]; then
@@ -165,6 +123,8 @@ if launchctl print "$LAUNCHCTL_TARGET" >/dev/null 2>&1; then
 else
   echo "Bootstrapping Cloudflare tunnel LaunchAgent..."
 fi
+
+/bin/launchctl bootout "gui/$(id -u)/$LEGACY_LABEL" >/dev/null 2>&1 || true
 
 /bin/launchctl bootstrap "gui/$(id -u)" "$PLIST_PATH"
 /bin/launchctl kickstart -k "$LAUNCHCTL_TARGET"
