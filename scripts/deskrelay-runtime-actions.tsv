@@ -2,6 +2,7 @@ id	name	scriptName	startDelayMs	systemImageName
 install-to-phone	安装到手机	run-ios-device.sh		play
 start-companion	启动 companion	start-full-backend-service.sh		play
 show-companion-pairing	显示配对码	show-companion-pairing.sh		qrcode
+show-companion-lan-url	显示局域网地址	show-companion-lan-url.sh		network
 show-companion-status	查看服务状态	show-companion-status.sh		checkmark.circle
 restart-cloudflare-tunnel	重启公网隧道	start-cloudflare-tunnel-service.sh		arrow.triangle.2.circlepath
 stop-companion	停止 companion 服务	stop-companion-service.sh	120	gearshape
