@@ -6,9 +6,11 @@ LAUNCH_DOMAIN="gui/$(id -u)"
 LEGACY_LABELS=(
   "com.danxizuo.icodex-companion"
   "com.danxizuo.icodex-companion-cloudflared"
+  "com.danxizuo.007Codex-companion"
 )
 LEGACY_PROCESS_PATTERNS=(
   "$LEGACY_HOME/app/packages/companion/dist/cli.js"
+  ".bin/007 Codex Companion"
   "cloudflared.*icodex-companion"
 )
 
